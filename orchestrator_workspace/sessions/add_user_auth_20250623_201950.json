@@ -1,0 +1,13 @@
+{
+  "id": "add_user_auth_20250623_201950",
+  "feature_request": "add user auth",
+  "timestamp": "20250623_201950",
+  "status": "planned",
+  "project_type": null,
+  "files": {
+    "orchestrator_prompt": "# Orchestrator: Generate Work Sessions\n\nYou are preparing detailed work sessions for feature implementation.\n\nGiven a feature request, you will:\n1. Analyze what needs to be built\n2. Fill out complete analysis and implementation templates\n3. Provide time estimates and execution notes\n\n## Current Project Context\nYou are in a project directory. Quickly scan to understand:\n- Project type and language\n- Key patterns and conventions\n- Similar existing features\n\n## Feature Request: add user auth\n\n## Your Output\n\nProvide THREE sections:\n\n### 1. ANALYSIS_TEMPLATE\n```\n[Complete filled analysis template with specific focus areas for this feature]\n```\n\n### 2. IMPLEMENTATION_TEMPLATE  \n```\n[Complete filled implementation template with detailed requirements]\n```\n\n### 3. EXECUTION_NOTES\n```\nTime Estimate: [hours]\nKey Files: [list]\nSimilar Features: [if any]\nComplexity: [Low/Medium/High]\nRisks: [any identified]\n```\n\nBe specific and thorough. Someone should be able to execute these templates without additional context.",
+    "analysis_template": null,
+    "implementation_template": null,
+    "execution_notes": null
+  }
+}
