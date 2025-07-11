@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(# Check for files with identical sizes that might be duplicates\nfind . -type f ! -path \"./.git/*\" ! -path \"./orchestrator_workspace/*\" -name \"*.txt\" -o -name \"DESIGN PHASE\" -o -name \"INTEGRATE PHASE\" -o -name \"QUAlITY PHASE\" -o -name \"*Prompt*\" -o -name \"*prompt*\" -o -name \"*Chain*\" -o -name \"*Template*\" | xargs -I {} sh -c 'echo \"$(stat -c%s {}) {}\"' | sort -n | awk '{size=$1; $1=\"\"; files[size]=files[size] $0} END {for (s in files) if (split(files[s], a) > 2) print \"Size\", s\":\", files[s]}')",
+      "Bash(# Get file sizes for comparison\nfind . -type f ! -path \"./.git/*\" ! -path \"./orchestrator_workspace/*\" ! -name \"*.py\" ! -name \"*.pyc\" ! -name \"orchestrator.py\" ! -name \"CLAUDE.md\" ! -name \"README.md\" ! -name \"features.txt\" ! -name \"ORCHESTRATION_*.md\" -exec stat -c \"%s %n\" {} \\; | sort -n)",
+      "Bash(diff:*)",
+      "Bash(# Check for potential duplicates\necho \"=== Checking Test Development files ===\"\ndiff -q \"./Test-Development-CoTP.txt\" \"./Generic Templates/Test_Development\" || echo \"Files differ\"\necho -e \"\\n=== File sizes comparison ===\"\nstat -c \"%s %n\" \"./Test-Development-CoTP.txt\" \"./Generic Templates/Test_Development\")",
+      "Bash(chmod:*)",
+      "Bash(tree:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}
