@@ -1,0 +1,483 @@
+project_name: AIRules
+system_type: {{SYSTEM_TYPE}}  pipeline
+complexity_level: {{COMPLEXITY}} enterprise
+diagram_purpose: {{PURPOSE}}  architecture
+technical_specs:
+ 
+This project is composed of discrete data processing pipelines that are each wrapped with a unique command line interfaces to control the pipeline input and output. The common infrastructure underneath these pipelines facilitate common service-level functions such as providers for:
+
+
+Infrastructure: 
+ -Authentication (Azure Key Vault)
+ -Text Extraction (PDF plumber, tesseract, Azure Document Intelligence)
+ -Natural Language Processing (sPaCy, Azure Text Analytics)
+ -Predictive Token Models (ollama server, Azure OpenAI)
+ -Data Storage and Retreival (Azure Storage Account, Mounted Storage)
+ -Spark session management
+ -Runtime resolution (i.e. an inherited object that computes and outputs environment, tier, current user, working directory, OS runtime)
+ -A common AppContext inherited from the CLI's primary execution.
+ -Querying data from storage (project-wide generic query CLI for querying outputs from individual pipelines or else combining them)
+
+
+ For this visualization, we want a detailed view of these layers and how they interact, and specifically for a new developer approaching AI rules in understanding that the technical architecture permits them to simply build and test ephemeral pipelines and cli without needing to deeply know the layers beneath the pipeline (i.e. storage, authentication, leveraging external services like azure text analytics), but rather just bring them into the CLI or pipeline as needed.
+
+
+ So visualizing this, first layer is the CLI controlling the pipeline, which is basically the CLI execution to invoke the specific pipeline, then the configuration options the CLI user leverages to specify input, what providers should be used (spacy versus azure text analytics for either cost conservation or just to experiment with which is better), then output like: --format json to output in json, --dry-mode to test what would occur, etc.
+ 
+
+
+ The second layer is the pipeline, where the data processing for the layer actually occurs and what the developer would be implementing primarily beyond the CLI.
+
+
+ The third layer is the underlying, common infrastructure described above that gets inherited into the discrete pipelines and their CLI's as needed.
+
+
+ The fourth layer is the external services the solution uses and the infrastructure interacts with:
+ --Azure Storage Account for data storage
+ --External services such as sPacY (providing management for the dependency), Azure Text Analytics, etc
+ --The specific OS, which is resolved and communicated via the runtime context.
+ 
+ 
+ Here are the four layers represented for each pipeline in the project:
+ 
+ ## Pipeline Overview
+
+The AIRules project consists of the following pipelines:
+1. **Text Extraction Pipeline** - Extracts text from attachments (PDFs, documents, etc.)
+2. **Natural Language Processing (NLP) Pipeline** - Analyzes comments using NLP techniques
+3. **Data Sync Pipeline** - Syncs data from Regulations.gov API
+4. **Attachment Filtering Pipeline** - Filters attachments before extraction
+5. **Predictive Token Pipeline** - Uses LLMs to analyze comments and extract themes
+6. **Text Conditioning Pipeline** - Conditions and prepares text for analysis
+7. **Prompt Conditioning Pipeline** - Conditions prompts based on NLP analysis
+8. **Query Pipeline** - Queries and retrieves data from Delta Lake
+9. **Infrastructure Pipeline** - Manages Delta Lake schema and infrastructure
+10. **Prompt Management Pipeline** - Manages prompt templates for LLM operations
+
+---
+
+## 1. Text Extraction Pipeline
+
+**Purpose:** Extracts readable text from various attachment formats (PDFs, Word docs, Excel, etc.)
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/extract_text.py`
+- **Command:** `airules extract <docket_id>`
+- **Options:** 
+  - `--batch-size` (default: 20)
+  - `--file-types` (specific types to process)
+  - `--extraction_provider` (pdfplumber, azure-ocr)
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/attachment_processing_pipeline.py`
+- **Class:** `AttachmentProcessingPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/providers/authentication/azure_key_provider.py`
+- `airules/infrastructure/providers/extraction/local_provider.py` (PDF Plumber)
+- `airules/infrastructure/providers/extraction/azure_provider.py` (Azure Document Intelligence)
+- `airules/infrastructure/storage/azure/azure_storage.py`
+- `airules/infrastructure/storage/config_factory.py`
+- `airules/infrastructure/storage/mounted_storage.py`
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/configuration/runtime_context.py`
+
+### Layer 4 - External Services:
+- **Azure Document Intelligence** (formerly Form Recognizer)
+- **Tesseract OCR** (via pytesseract)
+- **PDF Plumber** (local processing)
+- **Azure Blob Storage**
+- **Operating System:** RHEL 9 / Linux
+
+---
+
+## 2. Natural Language Processing (NLP) Pipeline
+
+**Purpose:** Performs comprehensive NLP analysis on comments including sentiment, categorization, and substantiveness scoring
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/nlp.py`
+- **Command:** `airules nlp_analyze <docket_id>`
+- **Options:**
+  - `--batch-size` (default: 200)
+  - `--similarity-threshold` (default: 0.8)
+  - `--categories` (specific categories to analyze)
+  - `--regulation-aspects` (aspects for sentiment analysis)
+  - `--nlp-provider` (spacy, azure)
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/nlp_analysis_pipeline.py`
+- **Class:** `NLPAnalysisPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/providers/authentication/azure_key_provider.py`
+- `airules/infrastructure/providers/nlp/factory.py`
+- `airules/infrastructure/providers/nlp/spacy_provider.py`
+- `airules/infrastructure/providers/nlp/azure_provider.py`
+- `airules/infrastructure/providers/nlp/spacy_mapper.py`
+- `airules/infrastructure/providers/nlp/azure_mapper.py`
+- `airules/infrastructure/storage/azure/azure_storage.py`
+- `airules/infrastructure/storage/config_factory.py`
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/configuration/runtime_context.py`
+- `airules/infrastructure/spark/config.py`
+
+### Layer 4 - External Services:
+- **Azure Text Analytics API**
+- **SpaCy** (with en_core_web_lg model)
+- **TextBlob** (sentiment analysis)
+- **Apache Spark**
+- **Delta Lake**
+- **Azure Blob Storage**
+
+---
+
+## 3. Data Sync Pipeline
+
+**Purpose:** Synchronizes regulatory data from Regulations.gov API into Delta Lake
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/data_sync.py`
+- **Command:** `airules sync <docket_id>`
+- **Options:**
+  - `--test-mode` (limited comments)
+  - `--test-limit` (default: 100)
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/reg_gov_pipeline.py`
+- **Class:** `RegGovPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/storage/azure/azure_storage.py`
+- `airules/infrastructure/storage/config_factory.py`
+- `airules/infrastructure/storage/delta_common.py`
+- `airules/infrastructure/configuration/runtime_context.py`
+- `airules/regulations_gov_api/api_client.py`
+- `airules/infrastructure/spark/config.py`
+
+### Layer 4 - External Services:
+- **Regulations.gov API**
+- **Apache Spark**
+- **Delta Lake**
+- **Azure Blob Storage** (optional)
+
+---
+
+## 4. Attachment Filtering Pipeline
+
+**Purpose:** Intelligently filters attachments before extraction to reduce processing costs
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/filter_attachments.py`
+- **Command:** `airules filter-attachments <docket_id>`
+- **Options:**
+  - `--skip-llm` (skip LLM-based filtering)
+  - `--blocked-types` (additional file types to block)
+  - `--allowed-types` (only allow these types)
+  - `--llm-provider` (ollama, azure_openai)
+  - `--predictive-token-model` (specific model)
+  - `--batch-size` (default: 50)
+  - `--confidence-threshold` (default: 0.7)
+  - `--dry-run`
+  - `--force`
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/attachment_filtering_pipeline.py`
+- **Class:** `AttachmentFilteringPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/storage/azure/azure_storage.py`
+- `airules/infrastructure/providers/inference/ollama_provider.py`
+- `airules/infrastructure/providers/inference/azure_openai_provider.py`
+- `airules/infrastructure/providers/authentication/azure_key_provider.py`
+- `airules/infrastructure/configuration/runtime_context.py`
+
+### Layer 4 - External Services:
+- **Azure OpenAI Service**
+- **Ollama** (local LLM server)
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## 5. Predictive Token Pipeline
+
+**Purpose:** Uses LLMs to analyze comments and extract themes, action items, and insights
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/predictive_token.py`
+- **Command:** `airules predictive-token <subcommand>`
+- **Subcommands:**
+  - `run` - Execute predictive token analysis
+  - `list` - List available prompts
+  - `test` - Test a prompt
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/predictive_token_pipeline.py`
+- **Class:** `PredictiveTokenPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/configuration/runtime_context.py`
+- `airules/infrastructure/providers/inference/llm_base_provider.py`
+- `airules/infrastructure/providers/inference/azure_openai_provider.py`
+- `airules/infrastructure/providers/inference/ollama_provider.py`
+- `airules/infrastructure/storage/abstract_storage.py`
+- `airules/infrastructure/providers/authentication/azure_key_provider.py`
+- `airules/analysis/llm/prompt_manager.py`
+- `airules/analysis/llm/prompt_template.py`
+
+### Layer 4 - External Services:
+- **Azure OpenAI Service** (GPT-4, GPT-3.5)
+- **Ollama** (local models like Llama2, Mistral)
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## 6. Text Conditioning Pipeline
+
+**Purpose:** Conditions and prepares text for analysis by selecting the best source and filtering noise
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/text_conditioning.py`
+- **Command:** `airules condition-text <docket_id>`
+- **Options:**
+  - `--force` (reprocess even if exists)
+  - `--dry-run`
+  - `--batch-size` (default: 1000)
+  - `--min-score` (default: 0.4)
+  - `--prefer-attachments/--prefer-comments`
+  - `--include-metadata`
+  - `--output` (export results)
+  - `--format` (json, csv)
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/text_conditioning_pipeline.py`
+- **Class:** `TextConditioningPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/spark/config.py`
+- `airules/analysis/text_conditioning/text_selector.py`
+- `airules/analysis/text_conditioning/conditioning_analyzer.py`
+- `airules/delta_spark/models/analysis/comment_text_conditioning.py`
+
+### Layer 4 - External Services:
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## 7. Prompt Conditioning Pipeline
+
+**Purpose:** Conditions prompts based on NLP analysis data for better LLM results
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/prompt_conditioning.py`
+- **Command:** `airules condition-prompts run`
+- **Options:**
+  - `--docket-id` (required)
+  - `--strategy` (auto, substantiveness, category)
+  - `--test-mode`
+  - `--limit`
+  - `--dry-run`
+
+### Layer 2 - Pipeline Implementation:
+- **File:** `airules/pipelines/prompt_conditioning_pipeline.py`
+- **Class:** `PromptConditioningPipeline`
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/spark/config.py`
+- `airules/delta_spark/models/analysis/conditioned_prompts.py`
+
+### Layer 4 - External Services:
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## 8. Query Pipeline
+
+**Purpose:** Provides flexible querying capabilities across all Delta Lake tables
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/query/__init__.py`
+- **Command:** `airules query <table_spec>`
+- **Options:**
+  - `--filter` (key=value filters)
+  - `--limit` (default: 100)
+  - `--format` (table, json, csv)
+  - `--output` (file path)
+  - `--include-count/--no-count`
+  - `--stream/--no-stream`
+  - `--include-children`
+  - `--include-parents`
+  - `--depth` (traversal depth)
+
+### Layer 2 - Pipeline Implementation:
+- **Files in:** `airules/cli/commands/query/`
+  - `traverser.py` - Table traversal logic
+  - `validator.py` - Query validation
+  - `filters.py` - Filter processing
+  - `formatters.py` - Output formatting
+  - `hierarchical.py` - Hierarchical data handling
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/spark/config.py`
+- `airules/infrastructure/logging/config.py`
+- `airules/cli/commands/query/models/factory.py`
+- `airules/cli/commands/query/models/registry.py`
+- `airules/cli/commands/query/monitoring.py`
+
+### Layer 4 - External Services:
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## 9. Infrastructure Pipeline
+
+**Purpose:** Manages Delta Lake schema initialization and infrastructure setup
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/infrastructure.py`
+- **Command:** `airules init`
+- **Options:**
+  - `--force` (recreate tables)
+  - `--dry-run` (preview changes)
+
+### Layer 2 - Pipeline Implementation:
+- **Embedded in command** - Uses DeltaSchemaManager directly
+
+### Layer 3 - Infrastructure Components:
+- `airules/infrastructure/logging/config.py`
+- `airules/delta_spark/delta_schema_manager.py`
+- `airules/delta_spark/delta_table_registry.py`
+- `airules/delta_spark/delta_table_configurations.py`
+- `airules/infrastructure/spark/config.py`
+
+### Layer 4 - External Services:
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## 10. Prompt Management Pipeline
+
+**Purpose:** Manages prompt templates and configurations for LLM operations
+
+### Layer 1 - CLI Command:
+- **File:** `airules/cli/commands/prompt_management.py`
+- **Command:** `airules prompt-management <subcommand>`
+- **Subcommands:**
+  - `create-prompt` - Create new prompt
+  - `list` - List all prompts
+  - `get` - Get specific prompt
+  - `update` - Update existing prompt
+  - `delete` - Delete prompt
+  - `search` - Search prompts
+  - `export` - Export prompts
+  - `import` - Import prompts
+
+### Layer 2 - Pipeline Implementation:
+- **Embedded in command** - Direct Delta Lake operations
+
+### Layer 3 - Infrastructure Components:
+- `airules/delta_spark/models/analysis/prompts.py`
+- `airules/infrastructure/spark/config.py`
+- `airules/infrastructure/logging/config.py`
+
+### Layer 4 - External Services:
+- **Apache Spark**
+- **Delta Lake**
+
+---
+
+## Common Infrastructure Components
+
+These components are shared across multiple pipelines:
+
+### Authentication & Security:
+- `airules/infrastructure/providers/authentication/abstract_key_provider.py`
+- `airules/infrastructure/providers/authentication/azure_key_provider.py`
+- `airules/infrastructure/providers/authentication/local_key_provider.py`
+- `airules/infrastructure/providers/authentication/key_factory.py`
+
+### Storage:
+- `airules/infrastructure/storage/abstract_storage.py`
+- `airules/infrastructure/storage/azure/azure_storage.py`
+- `airules/infrastructure/storage/mounted_storage.py`
+- `airules/infrastructure/storage/config_factory.py`
+- `airules/infrastructure/storage/delta_common.py`
+
+### Logging & Monitoring:
+- `airules/infrastructure/logging/config.py`
+- `airules/infrastructure/logging/metrics.py`
+
+### Configuration:
+- `airules/infrastructure/configuration/runtime_context.py`
+- `airules/cli/app_context.py`
+
+### Spark & Delta Lake:
+- `airules/infrastructure/spark/config.py`
+- `airules/delta_spark/delta_schema_manager.py`
+- `airules/delta_spark/delta_table_registry.py`
+
+### Error Handling:
+- `airules/infrastructure/retry.py`
+- `airules/cli/decorators.py`
+
+---
+
+## External Service Summary
+
+### Cloud Services (Azure):
+- **Azure Key Vault** - Secret management
+- **Azure Blob Storage** - File storage
+- **Azure Document Intelligence** - OCR and document processing
+- **Azure Text Analytics** - NLP services
+- **Azure OpenAI** - LLM services
+
+### Open Source Alternatives:
+- **SpaCy** - Local NLP processing
+- **Ollama** - Local LLM deployment
+- **PDF Plumber** - Local PDF extraction
+- **Tesseract** - Local OCR
+- **TextBlob** - Additional NLP capabilities
+
+### Core Infrastructure:
+- **Apache Spark 4.0+** - Distributed processing
+- **Delta Lake 4.0+** - ACID-compliant storage
+- **PostgreSQL** - Optional metadata storage
+- **Python 3.8+** - Runtime environment
+- **Java 11/17** - Spark dependency
+
+### Operating Systems:
+- **RHEL 9** - Primary deployment target
+- **Linux** - General compatibility
+- **macOS** - Development environment
+
+---
+
+## Notes
+
+1. **Provider Selection**: Most pipelines support multiple providers (e.g., Azure vs local) for flexibility and cost optimization.
+
+2. **Modularity**: Each pipeline is designed to be independent but can be chained together for complex workflows.
+
+3. **Error Handling**: All pipelines include comprehensive error handling and retry mechanisms through the infrastructure layer.
+
+4. **Monitoring**: All pipelines integrate with the logging infrastructure for observability.
+
+5. **Configuration**: Runtime configuration is managed through the AppContext and RuntimeContext classes.
+ 
+ 
+ 
+ 
+ 
+ Please create rich, detailed visualization that reflects this architecture for all pertinent pipelines in the project, and save as output in root level directory.
+
+
